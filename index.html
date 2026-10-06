@@ -344,10 +344,18 @@ var Audio_ = (function(){
 
   return {
     speak: function(){},
-    good: function(){ tone([523, 659, 784], 0.1, 'sine'); },
-    bad: function(){ tone([220, 180], 0.14, 'sawtooth'); },
-    phaseDone: function(){ tone([523, 659, 784, 1046], 0.12, 'triangle'); },
-    click: function(){ tone([700], 0.05, 'sine'); }
+    good: function(){
+      tone([523, 659, 784], 0.1, 'sine');
+    },
+    bad: function(){
+      tone([220, 180], 0.14, 'sawtooth');
+    },
+    phaseDone: function(){
+      tone([523, 659, 784, 1046], 0.12, 'triangle');
+    },
+    click: function(){
+      tone([700], 0.05, 'sine');
+    }
   };
 })();
   
@@ -647,7 +655,11 @@ function renderMCQ(container, q, onAnswered){
       updateHud();
       var fb = $('#fb', container);
       fb.className = 'feedback show ' + (isCorrect ? 'good' : 'bad');
-      fb.innerHTML = '<div class="verdict">' + (isCorrect ? ICON.check : ICON.cross) + '<span>' + (isCorrect ? 'Correct' : 'Not quite') + '</span>' + (isCorrect ? '<span class="xp-pill">+' + xp + ' XP</span>' : '') + '</div>' +
+     fb.innerHTML = '<div class="verdict">' +
+  (isCorrect ? ICON.check : ICON.cross) +
+  '<span>' + (isCorrect ? 'Correct' : 'Not quite') + '</span>' +
+  (isCorrect ? '<span class="xp-pill">+' + xp + ' XP</span>' : '') +
+  '</div>' +
       '<div>' + esc(q.explain) + '</div>';
       $('#contBtn', container).style.display = 'inline-flex';
     });
@@ -887,15 +899,27 @@ function nextStep(){
 function renderPhaseComplete(phase){
   var st = state.phases[phase.id];
 
-  var html = '<div class="complete-wrap">' +
-    '<div class="big-check">' + ICON.check + '</div>' +
-    '<h2>' + phase.short + ' PHASE COMPLETE</h2>' +
+  var html =
+    '<div class="complete-wrap">' +
+      '<div class="big-check">' + ICON.check + '</div>' +
+      '<h2>' + phase.short + ' PHASE COMPLETE</h2>' +
 
-    '<div class="complete-stats">' +
-      '<div><b>' + st.score + '%</b><span>Accuracy</span></div>' +
-      '<div><b>' + st.correct + '/' + st.total + '</b><span>Correct</span></div>' +
-      '<div><b>+500</b><span>Phase XP</span></div>' +
-    '</div>' +
+      '<div class="complete-stats">' +
+        '<div>' +
+          '<b>' + st.score + '%</b>' +
+          '<span>Accuracy</span>' +
+        '</div>' +
+
+        '<div>' +
+          '<b>' + st.correct + '/' + st.total + '</b>' +
+          '<span>Correct</span>' +
+        '</div>' +
+
+        '<div>' +
+          '<b>+500</b>' +
+          '<span>Phase XP</span>' +
+        '</div>' +
+      '</div>' +
 
     '</div>';
 
