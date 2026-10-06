@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SDLC_TRAINING_SIMULATOR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+
+    --page-bg:#e4e8f5;
+    --chrome:#13141d;
+    --editor:#1a1b26;
+    --card:#202235;
+    --card-border:#33375a;
+    --art:#2a2d4b;
+    --code:#15161f;
+    --ink:#c0caf5;
+    --muted:#8089b8;
+    --punct:#9aa5ce;
+    --key:#7aa2f7;
+    --str:#9ece6a;
+    --brace:#bb9af7;
+    --sena:#39a900;
+    --on-sena:#0d1a05;
+    --focus:#7dcfff;
+    --good:#9ece6a;
+    --bad:#f7768e;
+    --warn:#e0af68;
+
+    --sans:"Bricolage Grotesque","Segoe UI",system-ui,-apple-system,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){ --page-bg:#0a0b11; } }
+  :root[data-theme="dark"]{ --page-bg:#0a0b11; }
+
+  html{ scroll-padding-top:env(safe-area-inset-top,0px); background:var(--page-bg); }
+  *,*::before,*::after{ box-sizing:inherit; }
+  body{
+    margin:0;
+    padding:clamp(10px,3vw,28px);
+    background:var(--page-bg);
+    color:var(--ink);
+    font-family:var(--sans);
+  }
+  .sr-only{ position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
+  button{ font:inherit; color:inherit; cursor:pointer; background:none; }
+  button:focus-visible, [tabindex]:focus-visible{ outline:3px solid var(--focus); outline-offset:2px; }
+  ::selection{ background:var(--sena); color:var(--on-sena); }
+
+  /* ---------- window chrome (shared across every screen) ---------- */
+  .window{
+    max-width:1180px; margin:0 auto;
+    background:var(--editor);
+    border:1px solid #2a2c42;
+    border-radius:14px;
+    overflow:hidden;
+    box-shadow:0 30px 80px rgba(20,22,50,.35);
+  }
+  .titlebar{ display:flex; align-items:flex-end; gap:16px; padding:12px 16px 0; background:var(--chrome); }
+  .dots{ display:flex; gap:8px; align-self:center; padding-bottom:12px; }
+  .dots i{ width:13px; height:13px; border-radius:50%; display:block; }
+  .dots i:nth-child(1){ background:#ff5f57; } .dots i:nth-child(2){ background:#febc2e; } .dots i:nth-child(3){ background:#28c840; }
+  .tab{ display:flex; align-items:center; gap:10px; min-width:0; padding:10px 18px; background:var(--editor); border-radius:8px 8px 0 0; font:500 14px/1 var(--mono); color:var(--key); }
+  .tab b{ font-weight:700; color:var(--warn); }
+  .tab span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .status{ margin-left:auto; align-self:center; margin-bottom:12px; display:flex; align-items:center; gap:8px; padding:6px 12px; border-radius:999px; background:var(--sena); color:var(--on-sena); font:700 12px/1 var(--mono); white-space:nowrap; }
+  .status::before{ content:""; width:8px; height:8px; border-radius:50%; background:#dfffc9; }
+
+  /* ---------- HUD (shown once the mission has started) ---------- */
+  .hud{ display:none; align-items:center; gap:10px; flex-wrap:wrap; padding:10px clamp(18px,3vw,32px) 0; }
+  .hud.on{ display:flex; }
+  .hud-chip{ display:flex; align-items:center; gap:7px; padding:6px 12px; border-radius:999px; background:var(--card); border:1px solid var(--card-border); font:700 12.5px/1 var(--mono); color:var(--ink); }
+  .hud-chip svg{ width:14px; height:14px; flex:none; }
+  .hud-chip.xp{ color:var(--warn); } .hud-chip.streak{ color:var(--bad); } .hud-chip.phase{ color:var(--key); }
+  .hud-spacer{ flex:1; }
+  .hud-btn{ display:flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:50%; border:1px solid var(--card-border); color:var(--ink); transition:background .15s,border-color .15s; }
+  .hud-btn:hover{ background:rgba(122,162,247,.12); border-color:var(--key); }
+  .hud-btn svg{ width:17px; height:17px; }
+
+  .editor{ padding:clamp(18px,3vw,32px); min-height:420px; }
+  .stage{ animation:fadein .35s ease both; }
+  @keyframes fadein{ from{ opacity:0; transform:translateY(6px);} to{ opacity:1; transform:none; } }
+
+  /* ---------- buttons ---------- */
+  .btn{ display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:48px; padding:0 20px; border-radius:11px; border:1.5px solid transparent; font:700 15px/1 var(--sans); transition:background .15s,border-color .15s,transform .1s; }
+  .btn:active{ transform:scale(.98); }
+  .btn svg{ width:18px; height:18px; flex:none; }
+  .btn.primary{ background:var(--sena); color:var(--on-sena); }
+  .btn.primary:hover{ background:#46c20a; }
+  .btn.ghost{ background:transparent; border-color:#4a4f7a; color:var(--ink); }
+  .btn.ghost:hover{ background:rgba(122,162,247,.12); border-color:var(--key); }
+  .btn.block{ width:100%; }
+  .btn:disabled{ opacity:.4; cursor:default; }
+
+  /* ---------- welcome ---------- */
+  .welcome{ text-align:center; max-width:640px; margin:clamp(10px,4vw,34px) auto; }
+  .welcome .brace{ font:700 15px/1 var(--mono); color:var(--brace); margin:0 0 10px; }
+  .welcome h1{ margin:0; font:800 clamp(30px,5vw,46px)/1.08 var(--sans); color:#fff; letter-spacing:-.01em; }
+  .welcome h1 span{ color:var(--sena); }
+  .welcome .tag{ margin:18px auto 0; max-width:48ch; font:400 15.5px/1.6 var(--sans); color:var(--muted); }
+  .welcome .tag q{ quotes:none; }
+
+  /* ---------- phase map ---------- */
+  .map-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:16px; margin-top:8px; }
+  .phase-card{ position:relative; text-align:left; padding:18px; border-radius:16px; background:var(--card); border:1.5px solid var(--card-border); transition:border-color .15s,transform .15s; }
+  .phase-card.clickable:hover{ border-color:var(--sena); transform:translateY(-2px); }
+  .phase-card.locked{ opacity:.55; }
+  .phase-card .pc-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+  .phase-card .pc-icon{ width:40px; height:40px; border-radius:10px; display:grid; place-items:center; flex:none; }
+  .phase-card .pc-icon svg{ width:22px; height:22px; }
+  .pc-badge{ display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:999px; font:700 10.5px/1 var(--mono); white-space:nowrap; }
+  .pc-badge svg{ width:11px; height:11px; }
+  .pc-badge.done{ background:rgba(158,206,106,.18); color:var(--good); }
+  .pc-badge.current{ background:rgba(122,162,247,.18); color:var(--key); }
+  .pc-badge.locked{ background:rgba(128,137,184,.18); color:var(--muted); }
+  .phase-card h3{ margin:14px 0 2px; font:700 18px/1.2 var(--sans); color:#fff; }
+  .phase-card .pc-count{ margin:0; font:400 12px/1 var(--mono); color:var(--muted); }
+  .pc-bar{ height:6px; border-radius:999px; background:#2b2e4a; overflow:hidden; margin-top:14px; }
+  .pc-bar span{ display:block; height:100%; border-radius:999px; background:var(--sena); }
+  .pc-foot{ display:flex; align-items:center; justify-content:space-between; margin-top:8px; font:500 11.5px/1 var(--mono); color:var(--muted); }
+
+  /* ---------- question card ---------- */
+  .q-wrap{ max-width:720px; margin:0 auto; }
+  .q-meta{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px; font:500 12px/1 var(--mono); color:var(--muted); }
+  .q-bar{ height:6px; border-radius:999px; background:#2b2e4a; overflow:hidden; margin-bottom:22px; }
+  .q-bar span{ display:block; height:100%; border-radius:999px; background:var(--sena); transition:width .35s ease; }
+  .scenario{ padding:14px 16px; border-left:3px solid var(--key); background:rgba(122,162,247,.08); border-radius:0 10px 10px 0; font:400 15px/1.55 var(--sans); color:var(--ink); margin-bottom:16px; }
+  .snippet{ padding:14px 16px; background:var(--code); border:1px solid #2b2e4a; border-radius:10px; font:400 13.5px/1.6 var(--mono); color:var(--str); white-space:pre-wrap; margin-bottom:16px; }
+  .snippet .err{ color:var(--bad); text-decoration:wavy underline; text-decoration-color:var(--bad); }
+  .q-prompt{ margin:0 0 20px; font:700 20px/1.4 var(--sans); color:#fff; }
+  .options{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:560px){ .options{ grid-template-columns:1fr; } }
+  .opt{ text-align:left; padding:14px 16px; border-radius:12px; background:var(--card); border:1.5px solid var(--card-border); font:600 14.5px/1.4 var(--sans); color:var(--ink); display:flex; align-items:center; gap:10px; transition:border-color .15s,background .15s; }
+  .opt:hover:not(:disabled){ border-color:var(--key); }
+  .opt .mark{ width:20px; height:20px; border-radius:50%; border:1.5px solid var(--card-border); flex:none; display:grid; place-items:center; }
+  .opt .mark svg{ width:12px; height:12px; }
+  .opt.correct{ border-color:var(--good); background:rgba(158,206,106,.12); }
+  .opt.correct .mark{ background:var(--good); border-color:var(--good); color:#0d1a05; }
+  .opt.wrong{ border-color:var(--bad); background:rgba(247,118,142,.12); }
+  .opt.wrong .mark{ background:var(--bad); border-color:var(--bad); color:#2a0a10; }
+  .opt:disabled{ cursor:default; }
+  .opt:disabled:not(.correct):not(.wrong){ opacity:.45; }
+
+  .feedback{ margin-top:18px; padding:14px 16px; border-radius:12px; font:400 14.5px/1.55 var(--sans); display:none; }
+  .feedback.show{ display:block; animation:fadein .25s ease both; }
+  .feedback.good{ background:rgba(158,206,106,.12); border:1px solid rgba(158,206,106,.4); }
+  .feedback.bad{ background:rgba(247,118,142,.12); border:1px solid rgba(247,118,142,.4); }
+  .feedback .verdict{ display:flex; align-items:center; gap:8px; font:700 13.5px/1 var(--mono); text-transform:uppercase; letter-spacing:.03em; margin-bottom:6px; }
+  .feedback.good .verdict{ color:var(--good); } .feedback.bad .verdict{ color:var(--bad); }
+  .feedback .xp-pill{ margin-left:auto; padding:2px 9px; border-radius:999px; background:rgba(224,175,104,.18); color:var(--warn); font:700 11.5px/1 var(--mono); }
+
+  .q-continue{ margin-top:18px; display:flex; justify-content:flex-end; }
+
+  /* ---------- match engine ---------- */
+  .match-cols{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:640px){ .match-cols{ grid-template-columns:1fr; } }
+  .match-col h4{ margin:0 0 10px; font:700 11px/1 var(--mono); letter-spacing:.06em; color:var(--muted); text-transform:uppercase; }
+  .match-item{ width:100%; text-align:left; padding:13px 14px; margin-bottom:10px; border-radius:11px; background:var(--card); border:1.5px solid var(--card-border); font:500 14px/1.4 var(--sans); color:var(--ink); transition:border-color .15s,background .15s; }
+  .match-item.term{ font:700 14.5px/1.4 var(--sans); }
+  .match-item:hover:not(:disabled){ border-color:var(--key); }
+  .match-item.selected{ border-color:var(--focus); background:rgba(125,207,255,.12); }
+  .match-item.matched{ border-color:var(--good); background:rgba(158,206,106,.12); opacity:.7; }
+  .match-item.shake{ border-color:var(--bad); animation:shake .4s; }
+  .match-item:disabled{ cursor:default; }
+  @keyframes shake{ 10%,90%{ transform:translateX(-2px);} 20%,80%{ transform:translateX(3px);} 30%,50%,70%{ transform:translateX(-5px);} 40%,60%{ transform:translateX(5px);} }
+
+  /* ---------- order engine ---------- */
+  .order-slots{ display:flex; flex-direction:column; gap:10px; margin-bottom:20px; }
+  .order-slot{ display:flex; align-items:center; gap:12px; min-height:52px; padding:10px 14px; border-radius:11px; border:1.5px dashed var(--card-border); font:600 14px/1.4 var(--sans); color:var(--muted); }
+  .order-slot .n{ font:700 13px/1 var(--mono); color:var(--muted); flex:none; width:20px; }
+  .order-slot.filled{ border-style:solid; border-color:var(--key); color:var(--ink); background:rgba(122,162,247,.08); cursor:pointer; }
+  .order-slot.filled.correct{ border-color:var(--good); background:rgba(158,206,106,.12); }
+  .order-slot.filled.wrong{ border-color:var(--bad); background:rgba(247,118,142,.12); }
+  .order-pool{ display:flex; flex-wrap:wrap; gap:10px; }
+  .order-chip{ padding:10px 16px; border-radius:999px; background:var(--card); border:1.5px solid var(--card-border); font:600 13.5px/1 var(--sans); color:var(--ink); }
+  .order-chip:hover:not(:disabled){ border-color:var(--key); }
+  .order-chip:disabled{ opacity:.3; cursor:default; }
+
+  /* ---------- classify engine ---------- */
+  .classify-levels{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .lvl-btn{ padding:16px 10px; border-radius:12px; background:var(--card); border:1.5px solid var(--card-border); font:700 13.5px/1 var(--mono); text-align:center; color:var(--ink); }
+  .lvl-btn[data-level="Low"]{ } .lvl-btn[data-level="Medium"]{ } .lvl-btn[data-level="High"]{ }
+  .lvl-btn:hover:not(:disabled){ border-color:var(--key); }
+  .lvl-btn.correct{ border-color:var(--good); background:rgba(158,206,106,.12); color:var(--good); }
+  .lvl-btn.wrong{ border-color:var(--bad); background:rgba(247,118,142,.12); color:var(--bad); }
+  .lvl-btn:disabled{ cursor:default; }
+
+  /* ---------- phase intro / illustration ---------- */
+  .phase-head{ display:flex; align-items:center; gap:16px; margin-bottom:22px; }
+  .phase-head .art{ width:72px; height:60px; border-radius:12px; background:var(--art); display:grid; place-items:center; flex:none; }
+  .phase-head .art svg{ width:100%; height:100%; }
+  .phase-head h2{ margin:0; font:700 22px/1.2 var(--sans); color:#fff; }
+  .phase-head p{ margin:2px 0 0; font:400 13px/1.4 var(--mono); color:var(--muted); }
+
+  .process-line{ display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:22px; font:700 11.5px/1 var(--mono); }
+  .process-line .pl-step{ padding:8px 12px; border-radius:999px; background:var(--card); border:1px solid var(--card-border); color:var(--muted); }
+  .process-line svg{ width:14px; height:14px; color:var(--muted); flex:none; }
+
+  /* ---------- phase complete / final ---------- */
+  .complete-wrap{ text-align:center; max-width:520px; margin:clamp(10px,4vw,24px) auto; }
+  .complete-wrap .big-check{ width:72px; height:72px; margin:0 auto 18px; border-radius:50%; background:rgba(158,206,106,.15); display:grid; place-items:center; color:var(--good); }
+  .complete-wrap .big-check svg{ width:36px; height:36px; }
+  .complete-wrap h2{ margin:0; font:800 26px/1.2 var(--sans); color:#fff; }
+  .complete-stats{ display:flex; justify-content:center; gap:28px; margin:22px 0; flex-wrap:wrap; }
+  .complete-stats div{ text-align:center; }
+  .complete-stats b{ display:block; font:800 26px/1 var(--mono); color:var(--sena); }
+  .complete-stats span{ font:500 11px/1 var(--mono); color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+
+  .final-terminal{ background:var(--code); border:1px solid #2b2e4a; border-radius:12px; padding:18px 20px; font:400 13.5px/1.7 var(--mono); color:var(--str); margin-bottom:22px; white-space:pre-wrap; }
+  .final-terminal .muted2{ color:var(--muted); }
+  .final-bars{ display:flex; flex-direction:column; gap:12px; margin-bottom:26px; }
+  .final-bar-row{ display:grid; grid-template-columns:140px 1fr 48px; align-items:center; gap:12px; font:600 12.5px/1 var(--mono); }
+  .final-bar-row .fb-track{ height:9px; border-radius:999px; background:#2b2e4a; overflow:hidden; }
+  .final-bar-row .fb-track span{ display:block; height:100%; border-radius:999px; background:var(--sena); }
+  .final-actions{ display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+
+  /* ---------- review vocabulary ---------- */
+  .review-group{ margin-bottom:22px; }
+  .review-group h4{ margin:0 0 10px; font:700 12px/1 var(--mono); letter-spacing:.05em; color:var(--key); text-transform:uppercase; }
+  .review-row{ display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--card-border); }
+  .review-row .rt{ flex:0 0 42%; font:700 13.5px/1.3 var(--sans); color:#fff; }
+  .review-row .rd{ flex:1; font:400 13px/1.4 var(--sans); color:var(--muted); }
+  .review-row .rbtn{ width:32px; height:32px; border-radius:50%; border:1px solid var(--card-border); display:grid; place-items:center; flex:none; color:var(--ink); }
+  .review-row .rbtn:hover{ border-color:var(--sena); }
+  .review-row .rbtn svg{ width:14px; height:14px; }
+
+  .note{ margin-top:14px; font:400 12.5px/1.5 var(--mono); color:var(--muted); text-align:center; }
+
+  @media (prefers-reduced-motion:reduce){
+    .stage,.feedback.show,.match-item.shake{ animation:none !important; }
+    .btn,.opt,.match-item,.order-chip,.lvl-btn,.pc-bar span,.q-bar span,.fb-track span{ transition:none !important; }
+  }
+</style>
+</head>
+<body>
+  <h1 class="sr-only">SDLC Training Simulator</h1>
+
+  <div class="window">
+    <div class="titlebar">
+      <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="tab"><b>{ }</b><span>sdlc_training_simulator.json</span></div>
+      <div class="status">SENA ADSO running</div>
+    </div>
+
+    <div class="hud" id="hud">
+      <div class="hud-chip xp"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M13 2L4 14h6l-1 8 9-12h-6z" fill="currentColor"/></svg><span id="hudXp">0 XP</span></div>
+      <div class="hud-chip streak"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2c1 4-3 5-3 9a3 3 0 0 0 6 0c1.2 1 2 2.6 2 4.2A5.2 5.2 0 0 1 11.8 20 5.6 5.6 0 0 1 6 14.4C6 9 12 7 12 2z" fill="currentColor"/></svg><span id="hudStreak">0</span></div>
+      <div class="hud-chip phase" id="hudPhase" style="display:none"></div>
+      <div class="hud-spacer"></div>
+      <button class="hud-btn" id="hudMap" data-action="go-map" aria-label="Phase map" title="Map">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 3L3 5.5v15L9 18l6 2.5 6-2.5v-15L15 5.5 9 3zM9 3v15M15 5.5v15" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+      </button>
+      <button class="hud-btn" id="hudMute" data-action="toggle-mute" aria-label="Mute audio" title="Mute">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" id="muteIcon"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+      </button>
+    </div>
+
+    <main class="editor">
+      <div class="stage" id="stage"></div>
+    </main>
+  </div>
+
+  <p class="note" id="globalNote"></p>
+
+<script>
+'use strict';
+
+/* ======================================================================
+   UTIL
+====================================================================== */
+function $(sel, root){ return (root||document).querySelector(sel); }
+function $all(sel, root){ return Array.from((root||document).querySelectorAll(sel)); }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function shuffle(arr){
+  var a = arr.slice();
+  for (var i = a.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+  return a;
+}
+function sample(arr, n){ return shuffle(arr).slice(0, n); }
+function el(html){ var d = document.createElement('div'); d.innerHTML = html.trim(); return d.firstElementChild; }
+
+var ICON = {
+  check: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  cross: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>',
+  play:  '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 4l12 8-12 8V4z" fill="currentColor"/></svg>',
+  lock:  '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.8" fill="none"/></svg>',
+  arrow: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  replay: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12a8 8 0 0 1 13.7-5.6L20 8.5M20 4v4.5h-4.5M20 12a8 8 0 0 1-13.7 5.6L4 15.5M4 20v-4.5h4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>',
+  book: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 6c-2.2-1.6-5-1.6-8-.8v13c3-.8 5.8-.8 8 .8 2.2-1.6 5-1.6 8-.8v-13c-3-.8-5.8-.8-8 .8z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>'
+};
+
+/* ======================================================================
+   AUDIO — WebAudio for feedback blips
+====================================================================== */
+var Audio_ = (function(){
+  var ctx = null;
+
+  function ac(){
+    if (!ctx){
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) ctx = new AC();
+    }
+    return ctx;
+  }
+
+  function tone(freqs, dur, type){
+    if (state.muted) return;
+    var c = ac(); if (!c) return;
+    var t0 = c.currentTime;
+    freqs.forEach(function(f, i){
+      var osc = c.createOscillator(), gain = c.createGain();
+      osc.type = type || 'sine';
+      osc.frequency.setValueAtTime(f, t0 + i * dur);
+      gain.gain.setValueAtTime(0.0001, t0 + i * dur);
+      gain.gain.exponentialRampToValueAtTime(0.14, t0 + i * dur + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + i * dur + dur * 0.9);
+      osc.connect(gain).connect(c.destination);
+      osc.start(t0 + i * dur);
+      osc.stop(t0 + i * dur + dur);
+    });
+  }
+
+  return {
+    good: function(){ tone([523, 659, 784], 0.1, 'sine'); },
+    bad: function(){ tone([220, 180], 0.14, 'sawtooth'); },
+    phaseDone: function(){ tone([523, 659, 784, 1046], 0.12, 'triangle'); },
+    click: function(){ tone([700], 0.05, 'sine'); }
+  };
+})();
+
+/* ======================================================================
+   DATA — every term, grouped by phase. Nothing outside this list is
+   ever shown as a correct answer (rule: no invented vocabulary).
+====================================================================== */
+var PHASES = [
+{
+    id: 'planning', name: 'Planning Phase', short: 'PLANNING', game: 'match',
+    color: '#7aa2f7',
+    terms: [
+      { t:'Requirement', d:'Something the software must do or have.' },
+      { t:'Stakeholder', d:'A person who is affected by the project or has a say in it.' },
+      { t:'Functional Requirement', d:'What the system must do, like an action or a feature.' },
+      { t:'Non-Functional Requirement', d:'How well the system must work: speed, security, or ease of use.' },
+      { t:'User Story', d:'A short note that says what a user wants and why.' },
+      { t:'Feasibility Study', d:'An early check of whether a project is realistic to build.' },
+      { t:'Scope', d:'The exact work and features a project will include.' },
+      { t:'Gathering', d:'Collecting information about what users and the business need.' },
+      { t:'Business Case', d:'The reasons and expected value that justify starting a project.' },
+      { t:'Modeling', d:'Creating a simple diagram of how the system will work.' },
+      { t:'Elicitation', d:'Asking questions and researching to uncover hidden requirements.' },
+      { t:'Acceptance Criteria', d:'The specific conditions a feature must meet to be considered done.' },
+      { t:'Constraint', d:'A limit on the project, like budget, time, or technology.' },
+      { t:'Estimates', d:'A rough prediction of the time or cost a task will need.' },
+      { t:'Resource Allocation', d:'Assigning people, time, and budget to project tasks.' }
+    ]
+  }
+];;
+
+function findTerm(phase, name){
+  for (var i=0;i<phase.terms.length;i++) if (phase.terms[i].t===name) return phase.terms[i];
+  return null;
+}
+function phaseById(id){ for (var i=0;i<PHASES.length;i++) if (PHASES[i].id===id) return PHASES[i]; return null; }
+
+var PHASE_ICON = {
+  planning:
+    '<svg viewBox="0 0 72 60"><rect x="18" y="4" width="34" height="46" rx="4" fill="#c0caf5" transform="rotate(-6 35 27)"/><rect x="22" y="8" width="34" height="46" rx="4" fill="#e7e9fb" transform="rotate(4 39 31)"/>' +
+    '<g transform="rotate(4 39 31)"><rect x="28" y="18" width="9" height="9" rx="2.5" fill="#39a900"/><path d="M30 22.5l2 2 3.3-3.6" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="40" y="20" width="16" height="4" rx="2" fill="#8089b8"/>' +
+    '<rect x="28" y="33" width="9" height="9" rx="2.5" fill="#39a900"/><path d="M30 37.5l2 2 3.3-3.6" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="40" y="35" width="13" height="4" rx="2" fill="#8089b8"/></g></svg>',
+  design:
+    '<svg viewBox="0 0 72 60"><rect x="8" y="6" width="56" height="44" rx="6" fill="#c0caf5"/><rect x="8" y="6" width="56" height="12" rx="6" fill="#8089b8"/><rect x="8" y="12" width="56" height="6" fill="#8089b8"/>' +
+    '<circle cx="16" cy="12" r="1.8" fill="#f7768e"/><circle cx="21" cy="12" r="1.8" fill="#e0af68"/><circle cx="26" cy="12" r="1.8" fill="#9ece6a"/>' +
+    '<rect x="16" y="24" width="22" height="16" rx="3" fill="none" stroke="#7aa2f7" stroke-width="2" stroke-dasharray="3 3"/>' +
+    '<rect x="42" y="24" width="14" height="7" rx="2" fill="none" stroke="#bb9af7" stroke-width="2" stroke-dasharray="3 3"/>' +
+    '<rect x="42" y="33" width="14" height="7" rx="2" fill="none" stroke="#bb9af7" stroke-width="2" stroke-dasharray="3 3"/></svg>',
+  development:
+    '<svg viewBox="0 0 72 60"><rect x="10" y="7" width="52" height="38" rx="6" fill="#1a1b26"/>' +
+    '<rect x="18" y="16" width="20" height="4" rx="2" fill="#7aa2f7"/><rect x="18" y="24" width="30" height="4" rx="2" fill="#9ece6a"/><rect x="18" y="32" width="14" height="4" rx="2" fill="#f7768e"/>' +
+    '<circle cx="54" cy="40" r="10" fill="#39a900"/><path d="M50 36l-3.6 4 3.6 4" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M58 36l3.6 4-3.6 4" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  testing:
+    '<svg viewBox="0 0 72 60"><ellipse cx="30" cy="34" rx="11" ry="15" fill="#f7768e"/><circle cx="30" cy="18" r="6" fill="#f7768e"/>' +
+    '<g stroke="#f7768e" stroke-width="2.3" stroke-linecap="round"><line x1="20" y1="26" x2="11" y2="22"/><line x1="19" y1="34" x2="9" y2="34"/><line x1="20" y1="42" x2="11" y2="46"/><line x1="40" y1="26" x2="49" y2="22"/><line x1="41" y1="34" x2="51" y2="34"/><line x1="40" y1="42" x2="49" y2="46"/></g>' +
+    '<circle cx="50" cy="17" r="8" fill="none" stroke="#c0caf5" stroke-width="2.6"/><line x1="56" y1="23" x2="63" y2="30" stroke="#c0caf5" stroke-width="3" stroke-linecap="round"/></svg>',
+  deployment:
+    '<svg viewBox="0 0 72 60"><ellipse cx="48" cy="14" rx="12" ry="8" fill="#333866"/><circle cx="39" cy="13" r="6.4" fill="#333866"/><circle cx="56" cy="12" r="7.2" fill="#333866"/>' +
+    '<line x1="48" y1="21" x2="48" y2="29" stroke="#565c82" stroke-width="1.6" stroke-dasharray="2 2"/>' +
+    '<rect x="10" y="29" width="48" height="9" rx="2.5" fill="#3b4066"/><circle cx="17" cy="33.5" r="1.6" fill="#9ece6a"/><circle cx="23" cy="33.5" r="1.6" fill="#7aa2f7"/>' +
+    '<rect x="10" y="40" width="48" height="9" rx="2.5" fill="#333866"/><circle cx="17" cy="44.5" r="1.6" fill="#9ece6a"/><circle cx="23" cy="44.5" r="1.6" fill="#f7768e"/></svg>'
+};
+
+/* ======================================================================
+   STORAGE
+====================================================================== */
+var STORE_KEY = 'sdlc_sim_v1';
+function loadState(){
+  try{
+    var raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  }catch(e){ return null; }
+}
+function saveState(){
+  try{
+    localStorage.setItem(STORE_KEY, JSON.stringify({
+      xp: state.xp, best: state.best, phases: state.phases, muted: state.muted
+    }));
+  }catch(e){ /* storage unavailable — game still works, just won't persist */ }
+}
+
+/* ======================================================================
+   GAME STATE
+====================================================================== */
+function freshPhaseState(){
+  var o = {};
+  PHASES.forEach(function(p){ o[p.id] = { done:false, correct:0, total:0, unlocked:false }; });
+  o[PHASES[0].id].unlocked = true;
+  return o;
+}
+
+var state = {
+  xp: 0,
+  best: 0,
+  streak: 0,
+  muted: false,
+  phases: freshPhaseState(),
+  screen: 'welcome',
+  currentPhaseId: null,
+  queue: [],        // current phase's step queue
+  qIndex: 0,
+  phaseCorrect: 0,
+  phaseTotal: 0
+};
+
+(function initState(){
+  var saved = loadState();
+  if (saved){
+    state.xp = saved.xp || 0;
+    state.best = saved.best || 0;
+    state.muted = !!saved.muted;
+    if (saved.phases){
+      Object.keys(state.phases).forEach(function(id){
+        if (saved.phases[id]) state.phases[id] = Object.assign(state.phases[id], saved.phases[id]);
+      });
+    }
+  }
+  // keep unlock chain consistent: phase N unlocked if phase N-1 is done
+  for (var i=1;i<PHASES.length;i++){
+    if (state.phases[PHASES[i-1].id].done) state.phases[PHASES[i].id].unlocked = true;
+  }
+})();
+
+var XP_CORRECT = 100, XP_STREAK_BONUS = 50, XP_PHASE_COMPLETE = 500, STREAK_EVERY = 3;
+
+function grantXP(correct){
+  if (correct){
+    state.streak++;
+    state.xp += XP_CORRECT;
+    var bonus = (state.streak > 0 && state.streak % STREAK_EVERY === 0);
+    if (bonus) state.xp += XP_STREAK_BONUS;
+    state.phaseCorrect++;
+    Audio_.good();
+    return bonus ? XP_CORRECT + XP_STREAK_BONUS : XP_CORRECT;
+  } else {
+    state.streak = 0;
+    Audio_.bad();
+    return 0;
+  }
+}
+
+function finishPhase(phase){
+  var pct = state.phaseTotal ? Math.round(100 * state.phaseCorrect / state.phaseTotal) : 100;
+  state.phases[phase.id].done = true;
+  state.phases[phase.id].correct = state.phaseCorrect;
+  state.phases[phase.id].total = state.phaseTotal;
+  state.phases[phase.id].score = pct;
+  state.xp += XP_PHASE_COMPLETE;
+  state.best = Math.max(state.best, state.xp);
+  var nextIdx = PHASES.findIndex(function(p){ return p.id === phase.id; }) + 1;
+  if (nextIdx < PHASES.length) state.phases[PHASES[nextIdx].id].unlocked = true;
+  Audio_.phaseDone();
+  saveState();
+}
+
+/* ======================================================================
+   UI HELPERS
+====================================================================== */
+function setStage(html){
+  var s = $('#stage');
+  s.classList.remove('stage');
+  void s.offsetWidth;
+  s.innerHTML = html;
+  s.classList.add('stage');
+  return s;
+}
+function updateHud(){
+  $('#hudXp').textContent = state.xp + ' XP';
+  $('#hudStreak').textContent = String(state.streak);
+}
+function syncMuteIcon(){
+  $('#muteIcon').innerHTML = state.muted
+    ? '<path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z" fill="currentColor"/><path d="M16 9l5 6M21 9l-5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'
+    : '<path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>';
+  $('#hudMute').setAttribute('aria-label', state.muted ? 'Unmute audio' : 'Mute audio');
+}
+function toggleMute(){ state.muted = !state.muted; saveState(); syncMuteIcon(); }
+function resetAll(){
+  state.best = Math.max(state.best, state.xp);
+  state.xp = 0; state.streak = 0;
+  state.phases = freshPhaseState();
+  saveState();
+}
+
+/* ======================================================================
+   QUESTION BUILDERS (generic — reused by every phase, no hand-written
+   per-term questions needed beyond the DATA block above)
+====================================================================== */
+function buildDefMCQ(term, pool, extra){
+  var others = pool.filter(function(x){ return x.t !== term.t; });
+  var distractors = sample(others, Math.min(3, others.length)).map(function(x){ return x.t; });
+  var options = shuffle([term.t].concat(distractors));
+  var q = { prompt: (extra && extra.prompt) || term.d, options: options, correct: term.t, explain: term.t + ' \u2014 ' + term.d };
+  if (extra && extra.snippet) q.snippet = extra.snippet;
+  return q;
+}
+function buildScenarioMCQ(s, pool){
+  var term = pool.filter(function(x){ return x.t === s.t; })[0];
+  var others = pool.filter(function(x){ return x.t !== s.t; });
+  var distractors = sample(others, Math.min(3, others.length)).map(function(x){ return x.t; });
+  var options = shuffle([s.t].concat(distractors));
+  return { scenario: s.scenario, prompt: s.prompt, options: options, correct: s.t, explain: s.t + ' \u2014 ' + (term ? term.d : '') };
+}
+function chunk(arr, size){ var out = []; for (var i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size)); return out; }
+
+function buildQueue(phase){
+  var queue = [], total = 0;
+
+  if (phase.game === 'match'){
+    var batches = chunk(phase.terms, 4);
+    batches.forEach(function(b, bi){
+      queue.push({ kind:'match', pairs:b });
+      total += b.length;
+      if (bi === 1 || bi === batches.length - 1){
+        queue.push({ kind:'mcq', q: buildDefMCQ(sample(b,1)[0], phase.terms) });
+        total += 1;
+      }
+    });
+  }
+
+  else if (phase.game === 'design' || phase.game === 'development'){
+    var orderSet = phase.orderTerms || [];
+    var mcqTerms = shuffle(phase.terms.filter(function(t){ return orderSet.indexOf(t.t) === -1; }));
+    var mid = Math.floor(mcqTerms.length / 2);
+    mcqTerms.forEach(function(t, i){
+      var extra = t.snippet ? { snippet:t.snippet, prompt:t.snippetPrompt } : null;
+      queue.push({ kind:'mcq', q: buildDefMCQ(t, phase.terms, extra) });
+      total += 1;
+      if (i === mid - 1 && orderSet.length){
+        queue.push({ kind:'order', prompt: phase.orderPrompt, items: orderSet });
+        total += 1;
+      }
+    });
+    if (orderSet.length && !queue.some(function(s){ return s.kind === 'order'; })){
+      queue.push({ kind:'order', prompt: phase.orderPrompt, items: orderSet });
+      total += 1;
+    }
+  }
+
+  else if (phase.game === 'testing'){
+    var scenarioSteps = shuffle(phase.scenarios).map(function(s){ return { kind:'mcq', q: buildScenarioMCQ(s, phase.terms) }; });
+    var covered = phase.scenarios.map(function(s){ return s.t; }).concat(['Severity','Priority']);
+    var plainSteps = shuffle(phase.terms.filter(function(t){ return covered.indexOf(t.t) === -1; }))
+      .map(function(t){ return { kind:'mcq', q: buildDefMCQ(t, phase.terms) }; });
+    var combined = shuffle(scenarioSteps.concat(plainSteps));
+    var classifySteps = shuffle(phase.classify).map(function(c){ return { kind:'classify', item:c }; });
+    var gap = Math.max(1, Math.floor(combined.length / (classifySteps.length + 1)));
+    classifySteps.forEach(function(cs, i){
+      combined.splice(Math.min(combined.length, (i + 1) * gap + i), 0, cs);
+    });
+    queue = combined; total = queue.length;
+  }
+
+  else if (phase.game === 'deployment'){
+    var depScenarios = shuffle(phase.scenarios).map(function(s){ return { kind:'mcq', q: buildScenarioMCQ(s, phase.terms) }; });
+    var depCovered = phase.scenarios.map(function(s){ return s.t; });
+    var depPlain = shuffle(phase.terms.filter(function(t){ return depCovered.indexOf(t.t) === -1; }))
+      .map(function(t){ return { kind:'mcq', q: buildDefMCQ(t, phase.terms) }; });
+    queue = shuffle(depScenarios.concat(depPlain));
+    total = queue.length;
+  }
+
+  return { queue:queue, total:total };
+}
+
+/* ======================================================================
+   MINI-GAME ENGINES
+====================================================================== */
+function renderMCQ(container, q, onAnswered){
+  var html = '<div class="q-wrap">';
+  if (q.scenario) html += '<div class="scenario">' + esc(q.scenario) + '</div>';
+  if (q.snippet) html += '<div class="snippet">' + esc(q.snippet) + '</div>';
+  html += '<p class="q-prompt">' + esc(q.prompt) + '</p>';
+  html += '<div class="options" role="group">';
+  q.options.forEach(function(opt, i){
+    html += '<button type="button" class="opt" data-i="' + i + '"><span class="mark"></span><span>' + esc(opt) + '</span></button>';
+  });
+  html += '</div><div class="feedback" id="fb"></div>';
+  html += '<div class="q-continue"><button type="button" class="btn primary" id="contBtn" style="display:none">Continue ' + ICON.arrow + '</button></div></div>';
+  container.innerHTML = html;
+
+  var answered = false;
+  $all('.opt', container).forEach(function(btn){
+    btn.addEventListener('click', function(){
+      if (answered) return;
+      answered = true;
+      var chosen = q.options[+btn.dataset.i];
+      var isCorrect = chosen === q.correct;
+      $all('.opt', container).forEach(function(b){
+        b.disabled = true;
+        var val = q.options[+b.dataset.i];
+        if (val === q.correct){ b.classList.add('correct'); b.querySelector('.mark').innerHTML = ICON.check; }
+        else if (b === btn){ b.classList.add('wrong'); b.querySelector('.mark').innerHTML = ICON.cross; }
+      });
+      var xp = grantXP(isCorrect);
+      updateHud();
+      var fb = $('#fb', container);
+      fb.className = 'feedback show ' + (isCorrect ? 'good' : 'bad');
+      fb.innerHTML = '<div class="verdict">' + (isCorrect ? ICON.check : ICON.cross) + '<span>' + (isCorrect ? 'Correct' : 'Not quite') + '</span>' + (isCorrect ? '<span class="xp-pill">+' + xp + ' XP</span>' : '') + '</div>' +
+        '<div>' + esc(q.explain) + '</div>';
+      $('#contBtn', container).style.display = 'inline-flex';
+    });
+  });
+  $('#contBtn', container).addEventListener('click', onAnswered);
+}
+
+function renderMatch(container, pairs, onDone){
+  var leftOrder = shuffle(pairs.map(function(_, i){ return i; }));
+  var rightOrder = shuffle(pairs.map(function(_, i){ return i; }));
+  var matched = {}, selTerm = null, selDef = null, matchedCount = 0;
+
+  function html(){
+    var left = leftOrder.map(function(i){ return '<button type="button" class="match-item term" data-side="term" data-idx="' + i + '" ' + (matched[i] ? 'disabled' : '') + '>' + esc(pairs[i].t) + '</button>'; }).join('');
+    var right = rightOrder.map(function(i){ return '<button type="button" class="match-item" data-side="def" data-idx="' + i + '" ' + (matched[i] ? 'disabled' : '') + '>' + esc(pairs[i].d) + '</button>'; }).join('');
+    return '<p class="q-prompt" style="font-size:17px">Tap a term, then tap its matching definition.</p>' +
+      '<div class="match-cols"><div class="match-col"><h4>Terms</h4>' + left + '</div><div class="match-col"><h4>Definitions</h4>' + right + '</div></div>' +
+      '<p class="note" id="matchHint" style="min-height:18px"></p>';
+  }
+  container.innerHTML = html();
+
+  function refresh(){
+    $all('.match-item', container).forEach(function(b){
+      var idx = +b.dataset.idx, side = b.dataset.side;
+      b.classList.toggle('matched', !!matched[idx]);
+      b.classList.toggle('selected', (side === 'term' && selTerm === idx) || (side === 'def' && selDef === idx));
+    });
+  }
+
+  container.addEventListener('click', function(e){
+    var b = e.target.closest('.match-item');
+    if (!b || b.disabled) return;
+    var idx = +b.dataset.idx, side = b.dataset.side;
+    if (side === 'term') selTerm = (selTerm === idx) ? null : idx;
+    else selDef = (selDef === idx) ? null : idx;
+    refresh();
+
+    if (selTerm !== null && selDef !== null){
+      if (selTerm === selDef){
+        matched[selTerm] = true; matchedCount++;
+        grantXP(true); updateHud();
+        selTerm = null; selDef = null;
+        refresh();
+        $('#matchHint', container).textContent = '';
+        if (matchedCount === pairs.length) setTimeout(onDone, 450);
+      } else {
+        grantXP(false); updateHud();
+        $all('.match-item.selected', container).forEach(function(b2){ b2.classList.add('shake'); });
+        $('#matchHint', container).textContent = 'Not quite \u2014 try again.';
+        setTimeout(function(){
+          selTerm = null; selDef = null;
+          $all('.match-item', container).forEach(function(b2){ b2.classList.remove('shake'); });
+          refresh();
+        }, 420);
+      }
+    }
+  });
+}
+
+function renderOrder(container, promptText, items, onDone){
+  var placed = [], pool = shuffle(items.slice()), checked = false;
+
+  function render(){
+    var slots = items.map(function(_, i){
+      var label = placed[i];
+      return '<div class="order-slot' + (label ? ' filled' : '') + '" data-slot="' + i + '"><span class="n">' + (i + 1) + '</span><span class="label">' + (label ? esc(label) : 'Tap a card below') + '</span></div>';
+    }).join('');
+    var chips = pool.map(function(label){
+      var used = placed.indexOf(label) !== -1;
+      return '<button type="button" class="order-chip" data-label="' + esc(label) + '" ' + (used || checked ? 'disabled' : '') + '>' + esc(label) + '</button>';
+    }).join('');
+    container.innerHTML =
+      '<p class="q-prompt" style="font-size:17px">' + esc(promptText) + '</p>' +
+      '<div class="order-slots">' + slots + '</div>' +
+      '<div class="order-pool">' + chips + '</div>' +
+      '<div class="feedback" id="fb"></div>' +
+      '<div class="q-continue">' +
+        (placed.length === items.length && !checked ? '<button type="button" class="btn primary" id="checkBtn">Check order</button>' : '') +
+        '<button type="button" class="btn primary" id="contBtn" style="display:none">Continue ' + ICON.arrow + '</button>' +
+      '</div>';
+    bind();
+  }
+  function bind(){
+    $all('.order-chip', container).forEach(function(b){
+      b.addEventListener('click', function(){
+        if (checked || placed.length >= items.length) return;
+        placed.push(b.dataset.label);
+        render();
+      });
+    });
+    $all('.order-slot.filled', container).forEach(function(b){
+      b.addEventListener('click', function(){
+        if (checked) return;
+        placed.splice(+b.dataset.slot, 1);
+        render();
+      });
+    });
+    var cb = $('#checkBtn', container);
+    if (cb) cb.addEventListener('click', function(){
+      checked = true;
+      var allCorrect = true;
+      $all('.order-slot', container).forEach(function(s, i){
+        var ok = placed[i] === items[i];
+        if (!ok) allCorrect = false;
+        s.classList.add(ok ? 'correct' : 'wrong');
+      });
+      var xp = grantXP(allCorrect);
+      updateHud();
+      var fb = $('#fb', container);
+      fb.className = 'feedback show ' + (allCorrect ? 'good' : 'bad');
+      fb.innerHTML = '<div class="verdict">' + (allCorrect ? ICON.check : ICON.cross) + '<span>' + (allCorrect ? 'Correct order' : 'Not quite') + '</span>' + (allCorrect ? '<span class="xp-pill">+' + xp + ' XP</span>' : '') + '</div>' +
+        (allCorrect ? '' : '<div>Correct order: ' + items.map(esc).join(' \u2192 ') + '</div>');
+      $('#contBtn', container).style.display = 'inline-flex';
+      $all('.order-chip,.order-slot', container).forEach(function(x){ x.style.pointerEvents = 'none'; });
+    });
+  }
+  render();
+  container.addEventListener('click', function(e){ if (e.target.id === 'contBtn') onDone(); });
+}
+
+function renderClassify(container, item, onDone){
+  container.innerHTML =
+    '<div class="scenario">' + esc(item.scenario) + '</div>' +
+    '<p class="q-prompt">How severe is this problem?</p>' +
+    '<div class="classify-levels">' + ['Low','Medium','High'].map(function(lv){ return '<button type="button" class="lvl-btn" data-level="' + lv + '">' + lv + '</button>'; }).join('') + '</div>' +
+    '<div class="feedback" id="fb"></div>' +
+    '<div class="q-continue"><button type="button" class="btn primary" id="contBtn" style="display:none">Continue ' + ICON.arrow + '</button></div>';
+  var answered = false;
+  $all('.lvl-btn', container).forEach(function(b){
+    b.addEventListener('click', function(){
+      if (answered) return; answered = true;
+      var isCorrect = b.dataset.level === item.level;
+      $all('.lvl-btn', container).forEach(function(b2){
+        b2.disabled = true;
+        if (b2.dataset.level === item.level) b2.classList.add('correct');
+        else if (b2 === b) b2.classList.add('wrong');
+      });
+      var xp = grantXP(isCorrect);
+      updateHud();
+      var fb = $('#fb', container);
+      fb.className = 'feedback show ' + (isCorrect ? 'good' : 'bad');
+      fb.innerHTML = '<div class="verdict">' + (isCorrect ? ICON.check : ICON.cross) + '<span>' + (isCorrect ? 'Correct' : 'Not quite') + '</span>' + (isCorrect ? '<span class="xp-pill">+' + xp + ' XP</span>' : '') + '</div>' +
+        '<div>Severity is how serious the problem is \u2014 this one is <b>' + item.level + '</b>. Severity is not the same as priority: priority is how urgently it must be fixed.</div>';
+      $('#contBtn', container).style.display = 'inline-flex';
+    });
+  });
+  $('#contBtn', container).addEventListener('click', onDone);
+}
+
+/* ======================================================================
+   SCREENS
+====================================================================== */
+function renderWelcome(){
+  state.screen = 'welcome';
+  $('#hud').classList.remove('on');
+  setStage(
+    '<div class="welcome">' +
+      '<p class="brace">{ }</p>' +
+      '<h1>SDLC_TRAINING<span>_SIMULATOR</span></h1>' +
+      '<p class="tag">\u201cComplete cada fase del ciclo de desarrollo de software.\u201d</p>' +
+      '<div style="margin-top:30px"><button type="button" class="btn primary" data-action="start-mission">' + ICON.play + '<span>START MISSION</span></button></div>' +
+      (state.best > 0 ? '<p class="note" style="margin-top:22px">Best run: ' + state.best + ' XP</p>' : '') +
+    '</div>'
+  );
+}
+
+function renderMap(){
+  state.screen = 'map';
+  var html = '<div class="q-wrap" style="max-width:980px">' +
+    '<h2 style="margin:0 0 4px;font:800 24px/1.2 var(--sans);color:#fff">Mission Map</h2>' +
+    '<p style="margin:0 0 20px;font:400 13.5px/1.5 var(--mono);color:var(--muted)">Complete each phase to unlock the next.</p>' +
+    '<div class="map-grid">';
+  PHASES.forEach(function(p){
+    var st = state.phases[p.id];
+    var statusHtml, badgeClass, cardClass, attrs;
+    if (st.done){ statusHtml = ICON.check + '<span>COMPLETED</span>'; badgeClass = 'done'; cardClass = 'clickable'; }
+    else if (st.unlocked){ statusHtml = ICON.play + '<span>CURRENT</span>'; badgeClass = 'current'; cardClass = 'clickable'; }
+    else { statusHtml = ICON.lock + '<span>LOCKED</span>'; badgeClass = 'locked'; cardClass = 'locked'; }
+    attrs = cardClass === 'clickable' ? ('data-action="enter-phase" data-phase="' + p.id + '"') : 'disabled';
+    var pct = st.done ? st.score : 0;
+    html += '<button type="button" class="phase-card ' + cardClass + '" ' + attrs + '>' +
+      '<div class="pc-top"><div class="pc-icon" style="background:' + p.color + '22;color:' + p.color + '">' + PHASE_ICON[p.id] + '</div><span class="pc-badge ' + badgeClass + '">' + statusHtml + '</span></div>' +
+      '<h3>' + esc(p.name) + '</h3><p class="pc-count">' + p.terms.length + ' terms</p>' +
+      '<div class="pc-bar"><span style="width:' + pct + '%;background:' + p.color + '"></span></div>' +
+      '<div class="pc-foot"><span>' + (st.done ? (st.correct + '/' + st.total + ' correct') : 'Not started') + '</span><span>' + (st.done ? pct + '%' : '') + '</span></div>' +
+    '</button>';
+  });
+  html += '</div></div>';
+  setStage(html);
+  $('#hud').classList.add('on');
+  $('#hudPhase').style.display = 'none';
+  updateHud();
+}
+
+function runPhase(phase){
+  state.currentPhaseId = phase.id;
+  var built = buildQueue(phase);
+  state.queue = built.queue;
+  state.phaseTotal = built.total;
+  state.phaseCorrect = 0;
+  state.qIndex = 0;
+  $('#hudPhase').style.display = 'inline-flex';
+  $('#hudPhase').textContent = phase.short;
+  renderStep();
+}
+
+function renderStep(){
+  var phase = phaseById(state.currentPhaseId);
+  var step = state.queue[state.qIndex];
+  var head = '<div class="phase-head"><div class="art" style="background:' + phase.color + '22">' + PHASE_ICON[phase.id] + '</div><div><h2>' + esc(phase.name) + '</h2><p>Step ' + (state.qIndex + 1) + ' of ' + state.queue.length + '</p></div></div>';
+  var bar = '<div class="q-bar"><span style="width:' + Math.round(100 * state.qIndex / state.queue.length) + '%"></span></div>';
+  var banner = '';
+  if (phase.id === 'deployment'){
+    banner = '<div class="process-line">' + phase.process.map(function(s, i){ return '<span class="pl-step">' + esc(s.toUpperCase()) + '</span>' + (i < phase.process.length - 1 ? ICON.arrow : ''); }).join('') + '</div>';
+  }
+  var body = setStage(head + bar + banner + '<div id="stepBody"></div>');
+  body = $('#stepBody');
+
+  if (step.kind === 'mcq') renderMCQ(body, step.q, nextStep);
+  else if (step.kind === 'match') renderMatch(body, step.pairs, nextStep);
+  else if (step.kind === 'order') renderOrder(body, step.prompt, step.items, nextStep);
+  else if (step.kind === 'classify') renderClassify(body, step.item, nextStep);
+  updateHud();
+}
+
+function nextStep(){
+  state.qIndex++;
+  if (state.qIndex >= state.queue.length){
+    var phase = phaseById(state.currentPhaseId);
+    finishPhase(phase);
+    renderPhaseComplete(phase);
+  } else {
+    renderStep();
+  }
+}
+
+function renderPhaseComplete(phase){
+  var st = state.phases[phase.id];
+  var html = '<div class="complete-wrap">' +
+    '<div class="big-check">' + ICON.check + '</div>' +
+    '<h2>' + phase.short + ' PHASE COMPLETE</h2>' +
+    '<div class="complete-stats">' +
+      '<div><b>' + st.score + '%</b><span>Accuracy</span></div>' +
+      '<div><b>' + st.correct + '/' + st.total + '</b><span>Correct</span></div>' +
+      '<div><b>+500</b><span>Phase XP</span></div>' +
+    '</div>' +
+    '</div></div>';
+  setStage(html);
+  $('#hudPhase').style.display = 'none';
+  updateHud();
+}
+
+function renderFinal(){
+  var allDone = PHASES.every(function(p){ return state.phases[p.id].done; });
+  var html = '<div class="q-wrap" style="max-width:640px;text-align:center">';
+  html += '<div class="final-terminal" style="text-align:left">' +
+    '<span class="muted2">&gt;</span> SDLC TRAINING SIMULATOR\n<span class="muted2">-------------------------</span>\n' +
+    (allDone ? 'ALL PHASES COMPLETED\nSYSTEM STATUS: READY' : 'TRAINING IN PROGRESS\nSYSTEM STATUS: PARTIAL') +
+  '</div>';
+  html += '<h2 style="margin:0 0 18px;font:800 24px/1.2 var(--sans);color:#fff">TOTAL XP: ' + state.xp + '</h2>';
+  html += '<div class="final-bars">';
+  PHASES.forEach(function(p){
+    var st = state.phases[p.id], pct = st.done ? st.score : 0;
+    html += '<div class="final-bar-row"><span>' + p.short + '</span><div class="fb-track"><span style="width:' + pct + '%;background:' + p.color + '"></span></div><span>' + pct + '%</span></div>';
+  });
+  html += '</div>';
+  html += '<p style="font:400 13.5px/1.6 var(--sans);color:var(--muted);margin-bottom:22px">' + (allDone ? 'Nice work \u2014 that is the full SDLC vocabulary, start to finish.' : 'Keep going \u2014 finish every phase to complete your training.') + '</p>';
+  html += '<div class="final-actions">' +
+    '<button type="button" class="btn primary" data-action="replay">' + ICON.replay + '<span>REPLAY</span></button>' +
+    '<button type="button" class="btn ghost" data-action="review-vocab">' + ICON.book + '<span>REVIEW VOCABULARY</span></button>' +
+  '</div></div>';
+  setStage(html);
+  $('#hudPhase').style.display = 'none';
+}
+
+function renderReview(){
+  var html = '<div class="q-wrap" style="max-width:760px">' +
+    '<h2 style="margin:0 0 4px;font:800 22px/1.2 var(--sans);color:#fff">Vocabulary Review</h2>' +
+    '<p style="margin:0 0 20px;font:400 13px/1.5 var(--mono);color:var(--muted)">Terms from this phase.</p>';
+  PHASES.forEach(function(p){
+    html += '<div class="review-group"><h4>' + esc(p.name) + '</h4>';
+    p.terms.forEach(function(t){
+      html += '<div class="review-row"><span class="rt">' + esc(t.t) + '</span><span class="rd">' + esc(t.d) + '</span>' + '</div>';
+    });
+    html += '</div>';
+  });
+  html += '<div class="final-actions"><button type="button" class="btn ghost" data-action="go-final">' + ICON.arrow + '<span>BACK</span></button></div></div>';
+  setStage(html);
+  $('#hudPhase').style.display = 'none';
+}
+
+/* ======================================================================
+   GLOBAL NAVIGATION (delegated — survives every setStage re-render)
+====================================================================== */
+document.addEventListener('click', function(e){
+  var btn = e.target.closest('[data-action]');
+  if (btn){
+    var action = btn.dataset.action;
+    Audio_.click();
+    if (action === 'start-mission') renderMap();
+    else if (action === 'go-map') renderMap();
+    else if (action === 'enter-phase') runPhase(phaseById(btn.dataset.phase));
+    else if (action === 'go-final') renderFinal();
+    else if (action === 'replay'){ resetAll(); runPhase(PHASES[0]); }
+    else if (action === 'review-vocab') renderReview();
+    else if (action === 'toggle-mute') toggleMute();
+    return;
+  }
+});
+
+/* ======================================================================
+   INIT
+====================================================================== */
+syncMuteIcon();
+$('#hud').classList.add('on');
+runPhase(PHASES[0]);
+</script>
+</body>
+</html>
