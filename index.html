@@ -443,7 +443,7 @@ var state = {
 (function initState(){
   var saved = loadState();
   if (saved){
-    state.xp = saved.xp || 0;
+    state.xp = 0;
     state.best = saved.best || 0;
     state.muted = !!saved.muted;
     if (saved.phases){
