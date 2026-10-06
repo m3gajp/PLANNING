@@ -297,11 +297,17 @@ var ICON = {
   speaker: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>',
   replay: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12a8 8 0 0 1 13.7-5.6L20 8.5M20 4v4.5h-4.5M20 12a8 8 0 0 1-13.7 5.6L4 15.5M4 20v-4.5h4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>',
   book: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 6c-2.2-1.6-5-1.6-8-.8v13c3-.8 5.8-.8 8 .8 2.2-1.6 5-1.6 8-.8v-13c-3-.8-5.8-.8-8 .8z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>'
+};
+
 /* ======================================================================
-   AUDIO — WebAudio feedback only
+   AUDIO — SpeechSynthesis for terms, WebAudio for feedback blips
 ====================================================================== */
 var Audio_ = (function(){
+  var synth = ('speechSynthesis' in window) ? window.speechSynthesis : null;
+  var voices = [];
   var ctx = null;
+  function loadVoices(){ try{ voices = synth.getVoices() || []; }catch(e){ voices = []; } }
+  if (synth){ loadVoices(); synth.onvoiceschanged = loadVoices; }
 
   function ac(){
     if (!ctx){
@@ -311,31 +317,27 @@ var Audio_ = (function(){
     return ctx;
   }
 
+  function speak(text){
+    if (!synth || state.muted) return;
+    try{ synth.cancel(); }catch(e){}
+    var u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; u.rate = 0.95;
+    var v = voices.filter(function(x){ return /^en[-_]US/i.test(x.lang); })[0] || voices.filter(function(x){ return /^en/i.test(x.lang); })[0];
+    if (v) u.voice = v;
+    try{ synth.speak(u); }catch(e){}
+  }
+
   function tone(freqs, dur, type){
     if (state.muted) return;
-
-    var c = ac();
-    if (!c) return;
-
+    var c = ac(); if (!c) return;
     var t0 = c.currentTime;
-
     freqs.forEach(function(f, i){
-      var osc = c.createOscillator();
-      var gain = c.createGain();
-
+      var osc = c.createOscillator(), gain = c.createGain();
       osc.type = type || 'sine';
       osc.frequency.setValueAtTime(f, t0 + i * dur);
-
       gain.gain.setValueAtTime(0.0001, t0 + i * dur);
-      gain.gain.exponentialRampToValueAtTime(
-        0.14,
-        t0 + i * dur + 0.015
-      );
-      gain.gain.exponentialRampToValueAtTime(
-        0.0001,
-        t0 + i * dur + dur * 0.9
-      );
-
+      gain.gain.exponentialRampToValueAtTime(0.14, t0 + i * dur + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + i * dur + dur * 0.9);
       osc.connect(gain).connect(c.destination);
       osc.start(t0 + i * dur);
       osc.stop(t0 + i * dur + dur);
@@ -343,22 +345,14 @@ var Audio_ = (function(){
   }
 
   return {
-    speak: function(){},
-    good: function(){
-      tone([523, 659, 784], 0.1, 'sine');
-    },
-    bad: function(){
-      tone([220, 180], 0.14, 'sawtooth');
-    },
-    phaseDone: function(){
-      tone([523, 659, 784, 1046], 0.12, 'triangle');
-    },
-    click: function(){
-      tone([700], 0.05, 'sine');
-    }
+    speak: speak,
+    good: function(){ tone([523, 659, 784], 0.1, 'sine'); },
+    bad: function(){ tone([220, 180], 0.14, 'sawtooth'); },
+    phaseDone: function(){ tone([523, 659, 784, 1046], 0.12, 'triangle'); },
+    click: function(){ tone([700], 0.05, 'sine'); }
   };
 })();
-  
+
 /* ======================================================================
    DATA — every term, grouped by phase. Nothing outside this list is
    ever shown as a correct answer (rule: no invented vocabulary).
@@ -655,12 +649,9 @@ function renderMCQ(container, q, onAnswered){
       updateHud();
       var fb = $('#fb', container);
       fb.className = 'feedback show ' + (isCorrect ? 'good' : 'bad');
-     fb.innerHTML = '<div class="verdict">' +
-  (isCorrect ? ICON.check : ICON.cross) +
-  '<span>' + (isCorrect ? 'Correct' : 'Not quite') + '</span>' +
-  (isCorrect ? '<span class="xp-pill">+' + xp + ' XP</span>' : '') +
-  '</div>' +
-      '<div>' + esc(q.explain) + '</div>';
+      fb.innerHTML = '<div class="verdict">' + (isCorrect ? ICON.check : ICON.cross) + '<span>' + (isCorrect ? 'Correct' : 'Not quite') + '</span>' + (isCorrect ? '<span class="xp-pill">+' + xp + ' XP</span>' : '') + '</div>' +
+        '<div>' + esc(q.explain) + '</div>' +
+        '<button type="button" class="hud-btn" data-say="' + esc(q.correct) + '" style="margin-top:10px" aria-label="Listen: ' + esc(q.correct) + '">' + ICON.speaker + '</button>';
       $('#contBtn', container).style.display = 'inline-flex';
     });
   });
@@ -898,33 +889,18 @@ function nextStep(){
 
 function renderPhaseComplete(phase){
   var st = state.phases[phase.id];
-
-  var html =
-    '<div class="complete-wrap">' +
-      '<div class="big-check">' + ICON.check + '</div>' +
-      '<h2>' + phase.short + ' PHASE COMPLETE</h2>' +
-
-      '<div class="complete-stats">' +
-        '<div>' +
-          '<b>' + st.score + '%</b>' +
-          '<span>Accuracy</span>' +
-        '</div>' +
-
-        '<div>' +
-          '<b>' + st.correct + '/' + st.total + '</b>' +
-          '<span>Correct</span>' +
-        '</div>' +
-
-        '<div>' +
-          '<b>+500</b>' +
-          '<span>Phase XP</span>' +
-        '</div>' +
-      '</div>' +
-
-    '</div>';
-
+  var html = '<div class="complete-wrap">' +
+    '<div class="big-check">' + ICON.check + '</div>' +
+    '<h2>' + phase.short + ' PHASE COMPLETE</h2>' +
+    '<div class="complete-stats">' +
+      '<div><b>' + st.score + '%</b><span>Accuracy</span></div>' +
+      '<div><b>' + st.correct + '/' + st.total + '</b><span>Correct</span></div>' +
+      '<div><b>+500</b><span>Phase XP</span></div>' +
+    '</div>' +
+    '<div class="final-actions">' +
+       '<button type="button" class="btn ghost" data-action="go-map">BACK TO MAP</button>' +
+    '</div></div>';
   setStage(html);
-
   $('#hudPhase').style.display = 'none';
   updateHud();
 }
@@ -959,7 +935,8 @@ function renderReview(){
   PHASES.forEach(function(p){
     html += '<div class="review-group"><h4>' + esc(p.name) + '</h4>';
     p.terms.forEach(function(t){
-    html += '<div class="review-row"><span class="rt">' + esc(t.t) + '</span><span class="rd">' + esc(t.d) + '</span></div>';
+      html += '<div class="review-row"><span class="rt">' + esc(t.t) + '</span><span class="rd">' + esc(t.d) + '</span>' +
+        '<button type="button" class="rbtn" data-say="' + esc(t.t) + '" aria-label="Listen: ' + esc(t.t) + '">' + ICON.speaker + '</button></div>';
     });
     html += '</div>';
   });
@@ -999,3 +976,4 @@ runPhase(PHASES[0]);
 </script>
 </body>
 </html>
+
